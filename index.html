@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twister Caller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .current-move {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            font-size: 1.8em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .control-button {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+        }
+
+        .control-button:active {
+            transform: translateY(-1px);
+        }
+
+        .control-button.stop {
+            background: linear-gradient(45deg, #dc3545, #e74c3c);
+        }
+
+        .control-button.stop:hover {
+            background: linear-gradient(45deg, #c82333, #c0392b);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .current-move {
+                font-size: 1.4em;
+                padding: 20px;
+            }
+            
+            .control-button {
+                padding: 15px 30px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Twister Caller</h1>
+        
+        <div class="current-move" id="currentMove">
+            Ready to play Twister!
+        </div>
+        
+        <button class="control-button" id="controlButton" onclick="toggleCaller()">
+            ▶️ START
+        </button>
+        
+
+    </div>
+
+    <script>
+        // Twister move configuration
+        const limbs = ['Left Hand', 'Left Foot', 'Right Hand', 'Right Foot'];
+        const colors = ['Green', 'Yellow', 'Red', 'Blue'];
+        
+        let isRunning = false;
+        let isFirstMove = true;
+        let speechSynth = window.speechSynthesis;
+        let currentTimeouts = []; // Track all active timeouts
+        
+        // Initialize speech synthesis
+        function initSpeech() {
+            if (speechSynth) {
+                speechSynth.onvoiceschanged = function() {
+                    const voices = speechSynth.getVoices();
+                    const preferredVoice = voices.find(voice => 
+                        voice.lang.startsWith('en') && voice.name.includes('Google')
+                    ) || voices.find(voice => 
+                        voice.lang.startsWith('en')
+                    ) || voices[0];
+                    
+                    if (preferredVoice) {
+                        console.log('Using voice:', preferredVoice.name);
+                    }
+                };
+            }
+        }
+        
+        // Generate random move
+        function generateMove() {
+            const randomLimb = limbs[Math.floor(Math.random() * limbs.length)];
+            const randomColor = colors[Math.floor(Math.random() * limbs.length)];
+            return `${randomLimb} on ${randomColor}`;
+        }
+        
+        // Speak the move
+        function speakMove(text, isFirst = false) {
+            if (!speechSynth) return;
+            
+            // Cancel any ongoing speech
+            speechSynth.cancel();
+            
+            let speechText = '';
+            if (isFirst) {
+                speechText = "Let's play some Twister now! All right? Ready, here we go and " + text;
+            } else {
+                speechText = text;
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            utterance.volume = 1;
+            
+            // Try to use a good voice
+            const voices = speechSynth.getVoices();
+            const preferredVoice = voices.find(voice => 
+                voice.lang.startsWith('en') && voice.name.includes('Google')
+            ) || voices.find(voice => 
+                voice.lang.startsWith('en')
+            ) || voices[0];
+            
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+            
+            speechSynth.speak(utterance);
+        }
+        
+        // Generate and display a new move
+        function generateNewMove() {
+            const newMove = generateMove();
+            document.getElementById('currentMove').textContent = newMove;
+            speakMove(newMove, isFirstMove);
+            
+            // For first move, wait longer before confirmation (6 seconds total)
+            // For subsequent moves, wait 1 second before confirmation
+            const confirmationDelay = isFirstMove ? 6000 : 1000;
+            
+            // Speak confirmation after the delay
+            const confirmationTimeout = setTimeout(() => {
+                speakConfirmation(newMove);
+                
+                // Schedule next move after confirmation finishes (6.1 seconds later)
+                // This gives us the total 7.1 second cycle
+                const nextMoveTimeout = setTimeout(() => {
+                    if (isRunning) {
+                        generateNewMove();
+                    }
+                }, 6100);
+                
+                // Track this timeout
+                currentTimeouts.push(nextMoveTimeout);
+            }, confirmationDelay);
+            
+            // Track this timeout
+            currentTimeouts.push(confirmationTimeout);
+            
+            // Set isFirstMove to false AFTER scheduling the confirmation
+            isFirstMove = false;
+        }
+        
+        // Speak the "that's [limb] on [color]" confirmation
+        function speakConfirmation(move) {
+            if (!speechSynth) return;
+            
+            const confirmationText = `that's ${move}`;
+            
+            const utterance = new SpeechSynthesisUtterance(confirmationText);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            utterance.volume = 1;
+            
+            // Try to use a good voice
+            const voices = speechSynth.getVoices();
+            const preferredVoice = voices.find(voice => 
+                voice.lang.startsWith('en') && voice.name.includes('Google')
+            ) || voices.find(voice => 
+                voice.lang.startsWith('en')
+            ) || voices[0];
+            
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+            
+            speechSynth.speak(utterance);
+        }
+        
+        // Toggle the caller on/off
+        function toggleCaller() {
+            const button = document.getElementById('controlButton');
+            
+            if (!isRunning) {
+                // Start the caller
+                isRunning = true;
+                button.textContent = '⏹️ STOP';
+                button.className = 'control-button stop';
+                
+                // Generate first move immediately
+                generateNewMove();
+                
+            } else {
+                // Stop the caller
+                isRunning = false;
+                button.textContent = '▶️ START';
+                button.className = 'control-button';
+                
+                // Stop any ongoing speech
+                if (speechSynth) {
+                    speechSynth.cancel();
+                }
+                
+                // Clear ALL active timeouts to prevent multiple loops
+                currentTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+                currentTimeouts = [];
+                
+                // Reset to ready state
+                document.getElementById('currentMove').textContent = 'Ready to play Twister!';
+                isFirstMove = true;
+            }
+        }
+        
+
+        
+        // Initialize when page loads
+        window.addEventListener('load', function() {
+            initSpeech();
+        });
+        
+        // Handle page visibility change to pause speech when tab is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && speechSynth) {
+                speechSynth.pause();
+            }
+        });
+    </script>
+</body>
+</html> 
