@@ -85,6 +85,41 @@
         .control-button.stop:hover {
             background: linear-gradient(45deg, #c82333, #c0392b);
         }
+        
+        .limb-status {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 2px solid #e9ecef;
+        }
+        
+        .status-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .status-item {
+            padding: 8px 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
+        .position {
+            font-weight: bold;
+            color: #28a745;
+        }
 
         @media (max-width: 600px) {
             .container {
@@ -116,6 +151,16 @@
             Ready to play Twister!
         </div>
         
+        <div class="limb-status" id="limbStatus">
+            <div class="status-title">Current Positions:</div>
+            <div class="status-grid">
+                <div class="status-item" id="leftHandStatus">Left Hand: <span class="position">-</span></div>
+                <div class="status-item" id="leftFootStatus">Left Foot: <span class="position">-</span></div>
+                <div class="status-item" id="rightHandStatus">Right Hand: <span class="position">-</span></div>
+                <div class="status-item" id="rightFootStatus">Right Foot: <span class="position">-</span></div>
+            </div>
+        </div>
+        
         <button class="control-button" id="controlButton" onclick="toggleCaller()">
             ▶️ START
         </button>
@@ -132,6 +177,14 @@
         let isFirstMove = true;
         let speechSynth = window.speechSynthesis;
         let currentTimeouts = []; // Track all active timeouts
+        
+        // Track where each limb is currently placed
+        let limbPositions = {
+            'Left Hand': null,
+            'Left Foot': null,
+            'Right Hand': null,
+            'Right Foot': null
+        };
         
         // Initialize speech synthesis
         function initSpeech() {
@@ -153,9 +206,45 @@
         
         // Generate random move
         function generateMove() {
-            const randomLimb = limbs[Math.floor(Math.random() * limbs.length)];
-            const randomColor = colors[Math.floor(Math.random() * limbs.length)];
-            return `${randomLimb} on ${randomColor}`;
+            // Get available limbs (not currently placed)
+            const availableLimbs = limbs.filter(limb => limbPositions[limb] === null);
+            
+            // If all limbs are placed, we need to "lift" one to place it elsewhere
+            if (availableLimbs.length === 0) {
+                // Randomly choose a limb to move
+                const randomLimb = limbs[Math.floor(Math.random() * limbs.length)];
+                const currentColor = limbPositions[randomLimb];
+                
+                // Find a different color to place it on
+                const availableColors = colors.filter(color => color !== currentColor);
+                const newColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+                
+                // Update the position
+                limbPositions[randomLimb] = newColor;
+                
+                return `${randomLimb} on ${newColor}`;
+            } else {
+                // Normal case: place an available limb
+                const randomLimb = availableLimbs[Math.floor(Math.random() * availableLimbs.length)];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Update the position
+                limbPositions[randomLimb] = randomColor;
+                
+                return `${randomLimb} on ${randomColor}`;
+            }
+        }
+        
+        // Update the visual display of limb positions
+        function updateLimbDisplay() {
+            document.getElementById('leftHandStatus').querySelector('.position').textContent = 
+                limbPositions['Left Hand'] || '-';
+            document.getElementById('leftFootStatus').querySelector('.position').textContent = 
+                limbPositions['Left Foot'] || '-';
+            document.getElementById('rightHandStatus').querySelector('.position').textContent = 
+                limbPositions['Right Hand'] || '-';
+            document.getElementById('rightFootStatus').querySelector('.position').textContent = 
+                limbPositions['Right Foot'] || '-';
         }
         
         // Speak the move
@@ -197,6 +286,9 @@
             const newMove = generateMove();
             document.getElementById('currentMove').textContent = newMove;
             speakMove(newMove, isFirstMove);
+            
+            // Update the visual display of limb positions
+            updateLimbDisplay();
             
             // For first move, wait longer before confirmation (6 seconds total)
             // For subsequent moves, wait 1 second before confirmation
@@ -282,6 +374,14 @@
                 // Reset to ready state
                 document.getElementById('currentMove').textContent = 'Ready to play Twister!';
                 isFirstMove = true;
+                
+                // Reset all limb positions
+                Object.keys(limbPositions).forEach(limb => {
+                    limbPositions[limb] = null;
+                });
+                
+                // Update the visual display
+                updateLimbDisplay();
             }
         }
         
